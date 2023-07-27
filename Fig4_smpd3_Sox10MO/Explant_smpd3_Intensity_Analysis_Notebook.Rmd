@@ -11,9 +11,9 @@ Define parameters and import modules for this analysis
 ```{r}
 # Necessary input parameters
 data_path = 'raw_source_data/'
-measure_channel <- 'RFP'
-norm_channel <- 'EGFP'
-output_name <- 'ΔSoxE_Enh3Intensity_results.csv'
+measure_channel <- 'smpd3'
+norm_channel <- 'H2BRFP'
+output_name <- 'Sox10MO_smpd3_HCRIntensity_results.csv'
 
 # Import modules
 library(dplyr)
@@ -23,6 +23,7 @@ library(ggplot2)
 library(hrbrthemes)
 library(viridis)
 library(GGally)
+library(ggbeeswarm)
 ```
 
 Navigate to raw data from Fiji and import the raw measurement files
@@ -51,64 +52,59 @@ Parse out the relevant metadata from the file name and Label columns, then
 ```{r}
 df <- df %>% separate(Label, c('Channel', 'ROI'), ":")
 df <- df %>% separate(File, c('Date','Treatment',
-                              'Stains','Embryo','Somites','Mag'), "_")
-df <- unite(df, Emb_ID, c('Date','Treatment','Embryo'), sep = '_')
-df <- select(df, -c('RawIntDen','Stains','Mag')) # Drop unnecessary cols
+                              'Explant','Stains','Zprojection'), "_")
 
+# Make a unique sample identifier to allow for FOV averaging
+df <- unite(df, Explant_ID, c('Date','Treatment','Explant'), sep = '_',remove = FALSE) 
+# Drop unnecessary columns:
+df <- select(df, -c('Date','RawIntDen','Stains','Zprojection'))
+head(df,5)
 ```
 
 Normalization and analysis pipeline:
-  1: Channel of interest / Electroporation normalization channel 
-  2: Explicit value / mean of the control dataset (normalizes the control 
-    dataset around 1)
-  3: Generate ratio of Experimental / Control values
+  1: IntDen value from channel of interest (smpd3) / electroporation normalization (H2B-RFP) 
+        channel per FOV (3 FOVs per explant)
+  2: Average the electroporation-normalized IntDen values from the three FOVs to produce one 
+        mean value per explant
   
 ```{r}
-# Parse out and normalize data
+# Parse out experimental data
 data <- df[df$Channel==measure_channel & df$ROI!='Background',]
+
+# Normalize experimental data against the normalization channel
 data['NormIntDen'] <- (data['IntDen'] / 
                 df[df$Channel==norm_channel & df$ROI!='Background',]['IntDen'])
 data <- select(data, -c('Area', 'Mean', 'IntDen')) # Drop unnecessary cols
-data <- data %>% pivot_wider(names_from='ROI', values_from='NormIntDen')
-data <- data %>% dplyr::rename('Cntl'='CntlArea', 'Expt'='ExptArea')
 
-# Compute mean of control dataset and normalize everything to that
-control_mean <- mean(data$Cntl)
-data$Cntl <- data$Cntl/control_mean
-data$Expt <- data$Expt/control_mean
-# Determine the ratio of Experimental/Control IntDen
-data$Ratio <- data$Expt/data$Cntl
+# Pivot table to align FOVs per explant, then average values
+data <- data %>% pivot_wider(names_from='ROI', values_from='NormIntDen')
+data['MeanNormIntDen'] <- (rowMeans(data[sapply(data, is.numeric)]))
+data <- select(data, -c('FOV1','FOV2','FOV3'))
+data <- data[order(data$Treatment),]
+
 head(data,5)
 ```
 
 Save out resulting data
 
 ```{r}
+# Pivot table to generate separate control and experimental columns
+output_data <- data %>% pivot_wider(names_from='Treatment', values_from='MeanNormIntDen')
+
 date <- Sys.Date()
 date <- format(date, format="%Y%m%d")
-write.csv(data, file=paste(date, output_name, sep = "_", collapse = NULL))
+write.csv(output_data, file=paste(date, output_name, sep = "_", collapse = NULL))
 ```
 
 Plot data
 
 ```{r}
-# Parallel coordinate plot
-p <-ggparcoord(data, columns= 4:5,  showPoints=TRUE, 
-      scale='globalminmax',     # groupColumn = 2,
-        ) + 
-      ylim(0,2.5) +
-      theme_classic() 
-p
-```
 
-```{r}
 # Box and whiskers with strip plot for ratios
-q <-ggplot(data, aes(x=Channel, y=Ratio)) +
+q <-ggplot(data, aes(x=Treatment, y=MeanNormIntDen)) +
         geom_boxplot() +
-        geom_dotplot(binaxis='y', stackdir='center', dotsize=0.7) +
-        ylim(0,1.25)  +
-        geom_hline(yintercept=1, linetype="dashed", color = "red")
-      
+        geom_quasirandom(method = "smiley", size=2, width = .15) +
+        ylim(0,1.4)
 q
 ```
 

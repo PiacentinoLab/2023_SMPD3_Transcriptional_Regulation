@@ -86,7 +86,9 @@ head(data,5)
 Save out resulting data
 
 ```{r}
-write.csv(data, file=paste(Sys.Date(), output_name, sep = "_", collapse = NULL))
+date <- Sys.Date()
+date <- format(date, format="%Y%m%d")
+write.csv(data, file=paste(date, output_name, sep = "_", collapse = NULL))
 ```
 
 Plot data
