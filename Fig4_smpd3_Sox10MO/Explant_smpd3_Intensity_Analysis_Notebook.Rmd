@@ -21,8 +21,8 @@ library(tidyverse)
 library(tidyr)
 library(ggplot2)
 library(hrbrthemes)
-library(viridis)
-library(GGally)
+# library(viridis)
+# library(GGally)
 library(ggbeeswarm)
 ```
 
