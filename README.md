@@ -4,5 +4,7 @@ Code and source data pertaining to Piacentino et al., in prep. Sphingolipid meta
 
 FIJI macros used to measure image results, the resulting source data, and the R Notebooks used for data analysis are provided in the appropriate figure directories.
 
-Persistent Identifier (PID): [![DOI](https://zenodo.org/badge/670792152.svg)](https://zenodo.org/badge/latestdoi/670792152)
+Persistent Identifier (PID): 
+
+[![DOI](https://zenodo.org/badge/670792152.svg)](https://zenodo.org/badge/latestdoi/670792152)
 
